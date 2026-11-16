@@ -1,39 +1,64 @@
-#include <iostream>
 #include <raylib.h>
 #include <raymath.h>
-
-using namespace std;
+#include "player.h"
+#include "camera.h"
 
 int main()
 {
-    SetTraceLogLevel(LOG_ERROR);
-    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
-    InitWindow(1280, 720, "Raylib Game");
-    SetTargetFPS(120);
+    SetConfigFlags(FLAG_VSYNC_HINT);
 
-    Camera3D camera = {
-        position : {10.0f, 1.8f, 4.0f},
-        target : {0.0f, 0.0f, 0.0f},
-        up : {0.0f, 1.0f, 0.0f},
-        fovy : 60.0f,
-        projection : CAMERA_PERSPECTIVE
-    };
+    InitWindow(1280, 720, "My Game");
+    DisableCursor();
+    PollInputEvents();
+    SetTargetFPS(100);
 
+    // Player posistion
+    Player player;
+    InitPlayer(player, (Vector3){0.0f, 0.0f, 0.0f});
+
+    // Player eye position
+    GameCamera camera;
+    InitGameCamera(camera, GetPlayerEyePosition(player));
+
+    // Main game loop
     while (!WindowShouldClose())
     {
-        UpdateCamera(&camera, CAMERA_FIRST_PERSON);
-        DisableCursor();
+        float dt = GetFrameTime();
+        float deltaTime = dt;
+        if (deltaTime > 0.05f)
+            deltaTime = 0.05f;
+
+        UpdateGameCamera(camera, GetPlayerEyePosition(player), deltaTime);
+
+        Vector3 moveDir = {0.0f, 0.0f, 0.0f};
+        Vector3 forward = GetCameraForward(camera);
+        Vector3 right = GetCameraRight(camera);
+
+        if (IsKeyDown(KEY_W))
+            moveDir = Vector3Add(moveDir, forward);
+        if (IsKeyDown(KEY_S))
+            moveDir = Vector3Subtract(moveDir, forward);
+        if (IsKeyDown(KEY_D))
+            moveDir = Vector3Add(moveDir, right);
+        if (IsKeyDown(KEY_A))
+            moveDir = Vector3Subtract(moveDir, right);
+
+        if (Vector3Length(moveDir) > 0.0f)
+            moveDir = Vector3Normalize(moveDir);
+
+        UpdatePlayer(player, moveDir, deltaTime);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
+        DrawFPS(10, 10);
 
-        BeginMode3D(camera);
-        DrawCube({0.0f, 0.0f, 0.0f}, 1.0f, 1.0f, 1.0f, RED);
+        BeginMode3D(camera.playerCamera);
+        DrawGrid(100, 1.0f);
         EndMode3D();
 
         EndDrawing();
-        DrawFPS(10, 10);
     }
+
     CloseWindow();
     return 0;
 }

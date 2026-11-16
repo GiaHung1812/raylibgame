@@ -1,3 +1,19 @@
+# Binaries and executable files
 *.exe
+*.o
+*.obj
 *.dsym
 main
+player
+
+# Build directories
+build/
+bin/
+out/
+
+player
+
+# Build directories
+build/
+bin/
+out/

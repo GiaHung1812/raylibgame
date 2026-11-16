@@ -28,7 +28,7 @@ int main()
         if (deltaTime > 0.05f)
             deltaTime = 0.05f;
 
-        UpdateGameCamera(camera, GetPlayerEyePosition(player), deltaTime);
+        UpdateGameCamera(camera, GetPlayerEyePosition(player));
 
         Vector3 moveDir = {0.0f, 0.0f, 0.0f};
         Vector3 forward = GetCameraForward(camera);

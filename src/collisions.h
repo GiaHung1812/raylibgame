@@ -11,3 +11,4 @@ struct AABB
 };
 
 bool CheckAABBCollision(const AABB &a, const AABB &b);
+bool CheckWorldCollision(const AABB &box, const CollisonList &obstacles);

@@ -3,6 +3,7 @@
 #include "player.h"
 #include "camera.h"
 #include "collisions.h"
+#include "world.h"
 
 int main()
 {
@@ -20,6 +21,10 @@ int main()
     // Player eye position
     GameCamera camera;
     InitGameCamera(camera, GetPlayerEyePosition(player));
+
+    // World
+    World world;
+    InitWorld(world);
 
     // Main game loop
     while (!WindowShouldClose())
@@ -55,6 +60,7 @@ int main()
 
         BeginMode3D(camera.playerCamera);
         DrawGrid(100, 1.0f);
+        DrawWorld(world);
         EndMode3D();
 
         EndDrawing();

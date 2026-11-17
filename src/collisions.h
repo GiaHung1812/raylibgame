@@ -1,5 +1,8 @@
 #pragma once
 #include <raylib.h>
+#include <vector>
+
+using CollisonList = std::vector<struct AABB>;
 
 struct AABB
 {

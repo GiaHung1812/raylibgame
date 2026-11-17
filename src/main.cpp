@@ -2,15 +2,16 @@
 #include <raymath.h>
 #include "player.h"
 #include "camera.h"
+#include "collisions.h"
 
 int main()
 {
+    // FPS
     SetConfigFlags(FLAG_VSYNC_HINT);
 
     InitWindow(1280, 720, "My Game");
     DisableCursor();
     PollInputEvents();
-    SetTargetFPS(100);
 
     // Player posistion
     Player player;

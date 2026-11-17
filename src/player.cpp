@@ -8,6 +8,7 @@ void InitPlayer(Player &player, Vector3 startPos)
     player.moveSpeed = 5.0f;
     player.health = 100.0f;
     player.eyeHeight = 1.6f;
+    player.colliderSize = {0.5f, 1.8f, 0.5f};
 }
 
 void UpdatePlayer(Player &player, Vector3 moveDirection, float deltaTime)
@@ -31,4 +32,21 @@ void UpdatePlayer(Player &player, Vector3 moveDirection, float deltaTime)
 Vector3 GetPlayerEyePosition(const Player &player)
 {
     return {player.position.x, player.position.y + player.eyeHeight, player.position.z};
+}
+
+AABB GetPlayerAABB(const Player &player)
+{
+    float halfW = player.colliderSize.x * 0.5f;
+    float halfD = player.colliderSize.z * 0.5f;
+
+    AABB box;
+    box.min = {
+        player.position.x - halfW,
+        player.position.y,
+        player.position.z - halfD};
+    box.max = {
+        player.position.x + halfW,
+        player.position.y + player.colliderSize.y,
+        player.position.z + halfD};
+    return box;
 }

@@ -16,11 +16,13 @@ static AABB CreateWorldAABB(const Vector3 &position, const Vector3 &size)
 
 void InitWorld(World &world)
 {
-    // Example obstacles
+    // Example obstacles (placed in front of and around the player spawn)
     world.obstacles.clear();
-    world.obstacles.push_back(CreateWorldAABB({0.0f, 0.0f, 5.0f}, {2.0f, 2.0f, 2.0f}));
-    world.obstacles.push_back(CreateWorldAABB({3.0f, 0.0f, 10.0f}, {2.0f, 2.0f, 2.0f}));
-    world.obstacles.push_back(CreateWorldAABB({-3.0f, 0.0f, 15.0f}, {2.0f, 2.0f, 2.0f}));
+    world.obstacles.push_back(CreateWorldAABB({0.0f, 0.0f, -3.0f}, {2.0f, 1.0f, 1.5f})); // Low step crate (1m tall)
+    world.obstacles.push_back(CreateWorldAABB({0.0f, 0.0f, -5.0f}, {2.0f, 2.0f, 2.0f})); // Main box (2m tall)
+    world.obstacles.push_back(CreateWorldAABB({4.0f, 0.0f, -8.0f}, {2.0f, 3.0f, 2.0f}));
+    world.obstacles.push_back(CreateWorldAABB({-4.0f, 0.0f, -8.0f}, {2.0f, 2.0f, 2.0f}));
+    world.obstacles.push_back(CreateWorldAABB({0.0f, 0.0f, 5.0f}, {2.0f, 2.0f, 2.0f}));  // Behind
 }
 
 void DrawWorld(const World &world)

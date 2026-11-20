@@ -7,35 +7,35 @@
 
 int main()
 {
-    // FPS
+    // Window initialization
     SetConfigFlags(FLAG_VSYNC_HINT);
-
     InitWindow(1280, 720, "My Game");
     DisableCursor();
     PollInputEvents();
+    SetTargetFPS(100);
 
-    // Player posistion
+    // Entity and world setup
     Player player;
     InitPlayer(player, (Vector3){0.0f, 0.0f, 0.0f});
 
-    // Player eye position
     GameCamera camera;
     InitGameCamera(camera, GetPlayerEyePosition(player));
 
-    // World
     World world;
     InitWorld(world);
 
     // Main game loop
     while (!WindowShouldClose())
     {
+        // Delta time clamped to prevent tunneling during lag spikes
         float dt = GetFrameTime();
-        float deltaTime = dt;
-        if (deltaTime > 0.05f)
-            deltaTime = 0.05f;
+        if (dt > 0.05f)
+            dt = 0.05f;
 
+        // Camera orientation update
         UpdateGameCamera(camera, GetPlayerEyePosition(player));
 
+        // Movement input relative to camera orientation
         Vector3 moveDir = {0.0f, 0.0f, 0.0f};
         Vector3 forward = GetCameraForward(camera);
         Vector3 right = GetCameraRight(camera);
@@ -49,11 +49,13 @@ int main()
         if (IsKeyDown(KEY_A))
             moveDir = Vector3Subtract(moveDir, right);
 
-        if (Vector3Length(moveDir) > 0.0f)
-            moveDir = Vector3Normalize(moveDir);
+        // Jump input
+        bool jumpPressed = IsKeyPressed(KEY_SPACE);
 
-        UpdatePlayer(player, moveDir, deltaTime);
+        // Player physics, gravity, and obstacle collision
+        UpdatePlayer(player, moveDir, jumpPressed, dt, world.obstacles);
 
+        // Render pass
         BeginDrawing();
         ClearBackground(RAYWHITE);
         DrawFPS(10, 10);
@@ -62,6 +64,12 @@ int main()
         DrawGrid(100, 1.0f);
         DrawWorld(world);
         EndMode3D();
+
+        // Screen center crosshair
+        int midX = GetScreenWidth() / 2;
+        int midY = GetScreenHeight() / 2;
+        DrawCircle(midX, midY, 2.5f, Fade(BLACK, 0.5f));
+        DrawCircle(midX, midY, 1.5f, WHITE);
 
         EndDrawing();
     }

@@ -10,3 +10,4 @@ struct World
 
 void InitWorld(World &world);
 void DrawWorld(const World &world);
+bool LoadDungeonFromImage(World &world, const char *imagePath, Vector3 &playerSpawnPos);

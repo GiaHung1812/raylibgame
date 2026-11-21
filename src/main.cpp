@@ -14,15 +14,17 @@ int main()
     PollInputEvents();
     SetTargetFPS(100);
 
-    // Entity and world setup
+    // World setup and dungeon generation from image
+    World world;
+    Vector3 playerSpawn = {0.0f, 0.0f, 0.0f};
+    if (!LoadDungeonFromImage(world, "assets/dungeon_map.png", playerSpawn))
+        InitWorld(world);
+
     Player player;
-    InitPlayer(player, (Vector3){0.0f, 0.0f, 0.0f});
+    InitPlayer(player, playerSpawn);
 
     GameCamera camera;
     InitGameCamera(camera, GetPlayerEyePosition(player));
-
-    World world;
-    InitWorld(world);
 
     // Main game loop
     while (!WindowShouldClose())

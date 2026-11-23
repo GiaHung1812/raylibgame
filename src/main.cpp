@@ -2,8 +2,8 @@
 #include <raymath.h>
 #include "player.h"
 #include "camera.h"
-#include "collisions.h"
 #include "world.h"
+#include "weapon.h"
 
 int main()
 {
@@ -25,6 +25,9 @@ int main()
 
     GameCamera camera;
     InitGameCamera(camera, GetPlayerEyePosition(player));
+
+    Weapon weapon;
+    InitWeapon(weapon);
 
     // Main game loop
     while (!WindowShouldClose())
@@ -57,6 +60,9 @@ int main()
         // Player physics, gravity, and obstacle collision
         UpdatePlayer(player, moveDir, jumpPressed, dt, world.obstacles);
 
+        // Update weapon animation
+        UpdateWeapon(weapon, dt);
+
         // Render pass
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -65,6 +71,7 @@ int main()
         BeginMode3D(camera.playerCamera);
         DrawGrid(100, 1.0f);
         DrawWorld(world);
+        DrawWeapon(weapon, camera.playerCamera);
         EndMode3D();
 
         // Screen center crosshair
@@ -76,6 +83,7 @@ int main()
         EndDrawing();
     }
 
+    UnloadWeapon(weapon);
     CloseWindow();
     return 0;
 }

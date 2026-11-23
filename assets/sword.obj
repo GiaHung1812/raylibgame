@@ -1,0 +1,111 @@
+# Low-poly medieval sword OBJ
+# Origin (0,0,0) is at the hand grip
+
+# Vertices (v x y z)
+# Pommel (base of the handle)
+v -0.03 -0.32 -0.03
+v  0.03 -0.32 -0.03
+v  0.03 -0.32  0.03
+v -0.03 -0.32  0.03
+v -0.04 -0.28 -0.04
+v  0.04 -0.28 -0.04
+v  0.04 -0.28  0.04
+v -0.04 -0.28  0.04
+
+# Grip (Handle)
+v -0.025 -0.02 -0.025
+v  0.025 -0.02 -0.025
+v  0.025 -0.02  0.025
+v -0.025 -0.02  0.025
+
+# Crossguard
+v -0.22 -0.02 -0.04
+v  0.22 -0.02 -0.04
+v  0.22 -0.02  0.04
+v -0.22 -0.02  0.04
+v -0.24  0.04 -0.04
+v  0.24  0.04 -0.04
+v  0.24  0.04  0.04
+v -0.24  0.04  0.04
+
+# Blade Base
+v -0.06  0.04 -0.015
+v  0.06  0.04 -0.015
+v  0.06  0.04  0.015
+v -0.06  0.04  0.015
+v  0.00  0.04 -0.025
+v  0.00  0.04  0.025
+
+# Blade Mid
+v -0.055 0.55 -0.012
+v  0.055 0.55 -0.012
+v  0.055 0.55  0.012
+v -0.055 0.55  0.012
+v  0.000 0.55 -0.020
+v  0.000 0.55  0.020
+
+# Blade Tip
+v -0.035 0.85 -0.008
+v  0.035 0.85 -0.008
+v  0.035 0.85  0.008
+v -0.035 0.85  0.008
+v  0.000 0.85 -0.015
+v  0.000 0.85  0.015
+v  0.000 0.98  0.000
+
+# Faces (f v1 v2 v3 ...)
+# Pommel bottom
+f 1 2 3 4
+# Pommel sides
+f 1 5 6 2
+f 2 6 7 3
+f 3 7 8 4
+f 4 8 5 1
+# Pommel to Grip transition
+f 5 9 10 6
+f 6 10 11 7
+f 7 11 12 8
+f 8 12 9 5
+
+# Grip sides
+f 9 13 14 10
+f 10 14 15 11
+f 11 15 16 12
+f 12 16 13 9
+
+# Crossguard bottom
+f 13 14 15 16
+# Crossguard sides
+f 13 17 18 14
+f 14 18 19 15
+f 15 19 20 16
+f 16 20 17 13
+# Crossguard top
+f 17 18 19 20
+
+# Blade Body (Hexagonal cross-section with sharp center ridge)
+# Lower blade front & back ridges
+f 21 27 31 25
+f 25 31 28 22
+f 24 26 32 30
+f 26 23 29 32
+# Lower blade edges
+f 21 24 30 27
+f 22 28 29 23
+
+# Mid to Upper blade
+f 27 33 37 31
+f 31 37 34 28
+f 30 32 38 36
+f 32 29 35 38
+# Mid blade edges
+f 27 30 36 33
+f 28 34 35 29
+
+# Tip triangles
+f 33 39 37
+f 37 39 34
+f 36 38 39
+f 38 35 39
+f 33 36 39
+f 34 39 35

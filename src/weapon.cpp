@@ -4,13 +4,53 @@
 void InitWeapon(Weapon &weapon)
 {
     weapon.state = WeaponState::Idle;
-    weapon.forwardOffset = 0.55f;
+    weapon.forwardOffset = 0.42f;
     weapon.sideOffset = 0.28f;
-    weapon.verticalOffset = -0.30f;
-    weapon.baseRollDeg = -15.0f;
-    weapon.scale = {0.8f, 0.8f, 0.8f};
+    weapon.verticalOffset = -0.45f;
+    weapon.baseRollDeg = 30.0f;
+    weapon.scale = {0.022f, 0.022f, 0.022f};
 
-    weapon.model = LoadModel("assets/sword.obj");
+    weapon.swingTimer = 0.0f;
+    weapon.swingOffset = 0.0f;
+    weapon.horizontalSwingOffset = 0.0f;
+    weapon.verticalSwingOffset = 0.0f;
+    weapon.attackYawDeg = 0.0f;
+    weapon.attackRollDeg = 0.0f;
+
+    weapon.bobTimer = 0.0f;
+    weapon.bobVertical = 0.0f;
+    weapon.bobSide = 0.0f;
+
+    weapon.hitTriggered = false;
+    weapon.attackId = 0;
+
+    weapon.model = LoadModel("assets/sword.glb");
+}
+
+void StartWeaponSwing(Weapon &weapon)
+{
+    if (weapon.state != WeaponState::Idle)
+        return;
+
+    weapon.state = WeaponState::Attacking;
+    weapon.swingTimer = 0.0f;
+    weapon.hitTriggered = false;
+    weapon.attackId++;
+}
+
+static void UpdateWeaponBobbing(Weapon &weapon, bool isMoving, float dt)
+{
+    if (isMoving)
+    {
+        weapon.bobTimer += dt * 10.0f;
+        weapon.bobVertical = sinf(weapon.bobTimer) * 0.015f;
+        weapon.bobSide = sinf(weapon.bobTimer * 0.5f) * 0.012f;
+        return;
+    }
+
+    weapon.bobTimer = 0.0f;
+    weapon.bobVertical = Lerp(weapon.bobVertical, 0.0f, dt * 8.0f);
+    weapon.bobSide = Lerp(weapon.bobSide, 0.0f, dt * 8.0f);
 }
 
 static void UpdateRightSlashMotion(Weapon &weapon, float t)
@@ -32,21 +72,27 @@ static void UpdateRightSlashMotion(Weapon &weapon, float t)
     weapon.attackRollDeg = arc * 25.0f;
 }
 
-void UpdateWeapon(Weapon &weapon, float dt)
+bool UpdateWeapon(Weapon &weapon, bool isMoving, float dt)
 {
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && weapon.state == WeaponState::Idle)
-    {
-        weapon.state = WeaponState::Attacking;
-        weapon.swingTimer = 0.0f;
-    }
+    UpdateWeaponBobbing(weapon, isMoving, dt);
+
+    bool shouldCheckHit = false;
 
     if (weapon.state == WeaponState::Attacking)
     {
         weapon.swingTimer += dt;
-        float t = weapon.swingTimer / weapon.swingDuration;
-        t = Clamp(t, 0.0f, 1.0f);
+        float t = Clamp(weapon.swingTimer / weapon.swingDuration, 0.0f, 1.0f);
 
         UpdateRightSlashMotion(weapon, t);
+
+        // Trigger hit detection once inside active swing window
+        if (!weapon.hitTriggered &&
+            weapon.swingTimer >= weapon.hitWindowStart &&
+            weapon.swingTimer <= weapon.hitWindowEnd)
+        {
+            weapon.hitTriggered = true;
+            shouldCheckHit = true;
+        }
 
         if (weapon.swingTimer >= weapon.swingDuration)
         {
@@ -64,6 +110,8 @@ void UpdateWeapon(Weapon &weapon, float dt)
         weapon.attackYawDeg = Lerp(weapon.attackYawDeg, 0.0f, dt * returnSpeed);
         weapon.attackRollDeg = Lerp(weapon.attackRollDeg, 0.0f, dt * returnSpeed);
     }
+
+    return shouldCheckHit;
 }
 
 void DrawWeapon(const Weapon &weapon, const Camera3D &camera)
@@ -75,12 +123,12 @@ void DrawWeapon(const Weapon &weapon, const Camera3D &camera)
 
     Vector3 camForward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
     Vector3 camRight = Vector3Normalize(Vector3CrossProduct(camForward, (Vector3){0.0f, 1.0f, 0.0f}));
-    Vector3 camUp = (Vector3){0.0f, 1.0f, 0.0f};
+    Vector3 camUp = Vector3CrossProduct(camRight, camForward);
 
     // Composite offset position in view-space
     float blendedForward = weapon.forwardOffset + weapon.swingOffset;
-    float blendedSide = weapon.sideOffset + weapon.horizontalSwingOffset;
-    float blendedVertical = weapon.verticalOffset + weapon.verticalSwingOffset;
+    float blendedSide = weapon.sideOffset + weapon.horizontalSwingOffset + weapon.bobSide;
+    float blendedVertical = weapon.verticalOffset + weapon.verticalSwingOffset + weapon.bobVertical;
 
     Vector3 swordPos = camera.position;
     swordPos = Vector3Add(swordPos, Vector3Scale(camForward, blendedForward));
@@ -104,11 +152,10 @@ void DrawWeapon(const Weapon &weapon, const Camera3D &camera)
     float finalSinTheta = sqrtf(fmaxf(0.0f, 1.0f - finalQ.w * finalQ.w));
 
     Vector3 finalAxis = (finalSinTheta < 0.001f)
-        ? (Vector3){1.0f, 0.0f, 0.0f}
-        : (Vector3){finalQ.x / finalSinTheta, finalQ.y / finalSinTheta, finalQ.z / finalSinTheta};
+                            ? (Vector3){1.0f, 0.0f, 0.0f}
+                            : (Vector3){finalQ.x / finalSinTheta, finalQ.y / finalSinTheta, finalQ.z / finalSinTheta};
 
     DrawModelEx(weapon.model, swordPos, finalAxis, finalAngleDeg, weapon.scale, WHITE);
-    DrawModelWiresEx(weapon.model, swordPos, finalAxis, finalAngleDeg, weapon.scale, DARKGRAY);
 }
 
 void UnloadWeapon(Weapon &weapon)

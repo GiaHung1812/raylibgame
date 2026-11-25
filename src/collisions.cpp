@@ -18,3 +18,21 @@ bool CheckWorldCollision(const AABB &box, const CollisonList &obstacles)
     }
     return false;
 }
+
+RayCollision RaycastWorld(Ray ray, float maxDistance, const CollisonList &obstacles)
+{
+    RayCollision closestHit = {0};
+
+    for (const auto &obstacle : obstacles)
+    {
+        BoundingBox box = {obstacle.min, obstacle.max};
+        RayCollision hit = GetRayCollisionBox(ray, box);
+        if (hit.hit && hit.distance >= 0.0f && hit.distance <= maxDistance &&
+            (!closestHit.hit || hit.distance < closestHit.distance))
+        {
+            closestHit = hit;
+        }
+    }
+
+    return closestHit;
+}

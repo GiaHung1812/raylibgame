@@ -2,6 +2,7 @@
 #include <raymath.h>
 #include "player.h"
 #include "camera.h"
+#include "collisions.h"
 #include "world.h"
 #include "weapon.h"
 
@@ -28,6 +29,9 @@ int main()
 
     Weapon weapon;
     InitWeapon(weapon);
+
+    Vector3 lastHitPoint = {0.0f, 0.0f, 0.0f};
+    float hitIndicatorTimer = 0.0f;
 
     // Main game loop
     while (!WindowShouldClose())
@@ -60,8 +64,25 @@ int main()
         // Player physics, gravity, and obstacle collision
         UpdatePlayer(player, moveDir, jumpPressed, dt, world.obstacles);
 
-        // Update weapon animation
-        UpdateWeapon(weapon, dt);
+        // Weapon input, bobbing state, and swing update
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            StartWeaponSwing(weapon);
+
+        bool isMoving = player.isGrounded && (player.velocity.x * player.velocity.x + player.velocity.z * player.velocity.z > 0.01f);
+        if (UpdateWeapon(weapon, isMoving, dt))
+        {
+            Vector3 rayDir = Vector3Normalize(Vector3Subtract(camera.playerCamera.target, camera.playerCamera.position));
+            Ray attackRay = {camera.playerCamera.position, rayDir};
+            RayCollision hit = RaycastWorld(attackRay, 2.5f, world.obstacles);
+            if (hit.hit)
+            {
+                lastHitPoint = hit.point;
+                hitIndicatorTimer = 0.4f;
+            }
+        }
+
+        if (hitIndicatorTimer > 0.0f)
+            hitIndicatorTimer -= dt;
 
         // Render pass
         BeginDrawing();
@@ -71,14 +92,17 @@ int main()
         BeginMode3D(camera.playerCamera);
         DrawGrid(100, 1.0f);
         DrawWorld(world);
+        if (hitIndicatorTimer > 0.0f)
+            DrawSphere(lastHitPoint, 0.08f, ORANGE);
         DrawWeapon(weapon, camera.playerCamera);
         EndMode3D();
 
         // Screen center crosshair
         int midX = GetScreenWidth() / 2;
         int midY = GetScreenHeight() / 2;
+        Color crosshairColor = (hitIndicatorTimer > 0.0f) ? ORANGE : WHITE;
         DrawCircle(midX, midY, 2.5f, Fade(BLACK, 0.5f));
-        DrawCircle(midX, midY, 1.5f, WHITE);
+        DrawCircle(midX, midY, 1.5f, crosshairColor);
 
         EndDrawing();
     }

@@ -1,7 +1,7 @@
 #include "weapon.h"
 #include <raymath.h>
 
-void InitWeapon(Weapon &weapon)
+void ResetWeapon(Weapon &weapon)
 {
     weapon.state = WeaponState::Idle;
     weapon.currentAttack = SwordAttackType::RightSlash;
@@ -30,8 +30,12 @@ void InitWeapon(Weapon &weapon)
     weapon.bobSide = 0.0f;
 
     weapon.hitTriggered = false;
-    weapon.attackId = 0;
+}
 
+void InitWeapon(Weapon &weapon)
+{
+    ResetWeapon(weapon);
+    weapon.attackId = 0;
     weapon.model = LoadModel("assets/sword.glb");
 }
 

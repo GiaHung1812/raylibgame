@@ -61,6 +61,7 @@ struct Weapon
 };
 
 void InitWeapon(Weapon &weapon);
+void ResetWeapon(Weapon &weapon);
 void StartWeaponSwing(Weapon &weapon);
 bool UpdateWeapon(Weapon &weapon, bool isMoving, float dt);
 float GetWeaponDamage(const Weapon &weapon);

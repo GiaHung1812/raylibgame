@@ -9,60 +9,112 @@ constexpr float ATTACK_RANGE = 1.4f;
 constexpr float ATTACK_COOLDOWN = 1.0f;
 constexpr float ENEMY_DAMAGE = 10.0f;
 
-Texture2D LoadOrCreateEnemyTexture(const char *imagePath)
+struct EnemyAnimDesc
 {
-    if (FileExists(imagePath))
-        return LoadTexture(imagePath);
+    int row;
+    int frames;
+    float speed;
+    bool loop;
+};
 
-    // Procedural pixel-art skeleton placeholder when no sprite file exists
-    const char *pattern[16] = {
-        "................",
-        ".....XXXXXX.....",
-        "....XXXXXXXX....",
-        "....XX.XX.XX....",
-        "....XXXXXXXX....",
-        ".....XX..XX.....",
-        "......XXXX......",
-        "....XXXXXXXX....",
-        "...XX.XXXX.XX...",
-        "...XX.XXXX.XX...",
-        "......XXXX......",
-        ".....XX..XX.....",
-        ".....XX..XX.....",
-        ".....XX..XX.....",
-        "....XXX..XXX....",
-        "................"};
-
-    Image img = GenImageColor(16, 16, BLANK);
-    for (int y = 0; y < 16; ++y)
+static EnemyAnimDesc GetAnimForState(EnemyType type, EnemyState state)
+{
+    switch (type)
     {
-        for (int x = 0; x < 16; ++x)
+    case EnemyType::Skeleton:
+        switch (state)
         {
-            if (pattern[y][x] == 'X')
-                ImageDrawPixel(&img, x, y, LIGHTGRAY);
+        case EnemyState::Idle:
+            return {0, 1, 0.20f, true};
+        case EnemyState::Chase:
+            return {1, 4, 0.14f, true};
+        case EnemyState::Attack:
+            return {2, 5, 0.12f, true};
+        case EnemyState::Dead:
+            return {4, 4, 0.16f, false};
         }
+        break;
     }
-
-    // Highlight glowing red eye sockets
-    ImageDrawPixel(&img, 6, 3, RED);
-    ImageDrawPixel(&img, 9, 3, RED);
-
-    Texture2D tex = LoadTextureFromImage(img);
-    SetTextureFilter(tex, TEXTURE_FILTER_POINT);
-    UnloadImage(img);
-    return tex;
+    return {0, 1, 0.20f, true};
 }
 
-void InitEnemy(Enemy &enemy, Vector3 startPos)
+static void SetEnemyState(Enemy &enemy, EnemyState nextState)
 {
+    if (enemy.state == nextState)
+        return;
+
+    enemy.state = nextState;
+    EnemyAnimDesc anim = GetAnimForState(enemy.type, nextState);
+    enemy.animRow = anim.row;
+    enemy.animFrame = 0;
+    enemy.animFrameCount = anim.frames;
+    enemy.animTimer = 0.0f;
+    enemy.animSpeed = anim.speed;
+    enemy.animLoop = anim.loop;
+}
+
+static void UpdateEnemyAnimation(Enemy &enemy, float dt)
+{
+    if (enemy.animFrameCount <= 1)
+        return;
+
+    enemy.animTimer += dt;
+    if (enemy.animTimer < enemy.animSpeed)
+        return;
+
+    enemy.animTimer -= enemy.animSpeed;
+    if (enemy.animFrame + 1 < enemy.animFrameCount)
+    {
+        enemy.animFrame++;
+    }
+    else if (enemy.animLoop)
+    {
+        enemy.animFrame = 0;
+    }
+}
+
+EnemySprite LoadEnemySprite(const char *imagePath, int cols, int rows)
+{
+    EnemySprite sprite;
+    sprite.cols = (cols > 0) ? cols : 1;
+    sprite.rows = (rows > 0) ? rows : 1;
+    sprite.texture = LoadTexture(imagePath);
+
+    if (sprite.texture.id != 0)
+        SetTextureFilter(sprite.texture, TEXTURE_FILTER_POINT);
+
+    return sprite;
+}
+
+void UnloadEnemySprite(EnemySprite &sprite)
+{
+    if (sprite.texture.id != 0)
+    {
+        UnloadTexture(sprite.texture);
+        sprite.texture = {0};
+    }
+}
+
+void InitEnemy(Enemy &enemy, Vector3 startPos, EnemyType type)
+{
+    enemy.type = type;
     enemy.position = startPos;
     enemy.velocity = {0.0f, 0.0f, 0.0f};
     enemy.radius = 0.4f;
-    enemy.height = 1.6f;
+    enemy.height = 1.75f;
     enemy.speed = 2.6f;
     enemy.maxHealth = 100.0f;
     enemy.health = enemy.maxHealth;
+
+    EnemyAnimDesc anim = GetAnimForState(type, EnemyState::Idle);
     enemy.state = EnemyState::Idle;
+    enemy.animRow = anim.row;
+    enemy.animFrame = 0;
+    enemy.animFrameCount = anim.frames;
+    enemy.animTimer = 0.0f;
+    enemy.animSpeed = anim.speed;
+    enemy.animLoop = anim.loop;
+
     enemy.lastAttackId = -1;
     enemy.hitFlashTimer = 0.0f;
     enemy.attackCooldown = 0.0f;
@@ -97,12 +149,12 @@ bool DamageEnemy(Enemy &enemy, float damage, int attackId, Vector3 knockbackDir,
     if (enemy.health <= 0.0f)
     {
         enemy.health = 0.0f;
-        enemy.state = EnemyState::Dead;
-        enemy.deathTimer = 1.0f;
+        SetEnemyState(enemy, EnemyState::Dead);
+        enemy.deathTimer = 1.2f;
     }
     else if (enemy.state == EnemyState::Idle)
     {
-        enemy.state = EnemyState::Chase;
+        SetEnemyState(enemy, EnemyState::Chase);
     }
 
     return true;
@@ -151,6 +203,8 @@ void UpdateEnemies(std::vector<Enemy> &enemies, Vector3 playerPos, float &player
         if (enemy.attackCooldown > 0.0f)
             enemy.attackCooldown -= dt;
 
+        UpdateEnemyAnimation(enemy, dt);
+
         // Apply and damp knockback velocity with wall collision
         if (Vector3LengthSqr(enemy.velocity) > 0.001f)
         {
@@ -179,19 +233,19 @@ void UpdateEnemies(std::vector<Enemy> &enemies, Vector3 playerPos, float &player
         {
         case EnemyState::Idle:
             if (dist <= DETECT_RADIUS)
-                enemy.state = EnemyState::Chase;
+                SetEnemyState(enemy, EnemyState::Chase);
             break;
 
         case EnemyState::Chase:
         {
             if (dist > LOSE_RADIUS)
             {
-                enemy.state = EnemyState::Idle;
+                SetEnemyState(enemy, EnemyState::Idle);
                 break;
             }
             if (dist <= ATTACK_RANGE)
             {
-                enemy.state = EnemyState::Attack;
+                SetEnemyState(enemy, EnemyState::Attack);
                 break;
             }
 
@@ -208,7 +262,7 @@ void UpdateEnemies(std::vector<Enemy> &enemies, Vector3 playerPos, float &player
         case EnemyState::Attack:
             if (dist > ATTACK_RANGE + 0.4f)
             {
-                enemy.state = EnemyState::Chase;
+                SetEnemyState(enemy, EnemyState::Chase);
                 break;
             }
             if (enemy.attackCooldown <= 0.0f)
@@ -230,7 +284,7 @@ void UpdateEnemies(std::vector<Enemy> &enemies, Vector3 playerPos, float &player
         enemies.end());
 }
 
-void DrawEnemies(const std::vector<Enemy> &enemies, const Camera3D &camera, Texture2D sprite)
+void DrawEnemies(const std::vector<Enemy> &enemies, const Camera3D &camera, const std::vector<EnemySprite> &sprites)
 {
     // Sort back-to-front so transparent billboards overlap properly
     std::vector<size_t> order(enemies.size());
@@ -245,14 +299,28 @@ void DrawEnemies(const std::vector<Enemy> &enemies, const Camera3D &camera, Text
     for (size_t idx : order)
     {
         const Enemy &enemy = enemies[idx];
-        Vector3 drawPos = {enemy.position.x, enemy.position.y + enemy.height * 0.5f, enemy.position.z};
+        size_t typeIdx = static_cast<size_t>(enemy.type);
+
+        if (typeIdx >= sprites.size() || sprites[typeIdx].texture.id == 0)
+        {
+            Vector3 fallbackPos = {enemy.position.x, enemy.position.y + enemy.height * 0.5f, enemy.position.z};
+            DrawCube(fallbackPos, enemy.radius * 2.0f, enemy.height, enemy.radius * 2.0f, MAGENTA);
+            continue;
+        }
+
+        const EnemySprite &sprite = sprites[typeIdx];
+        float cellW = (float)sprite.texture.width / sprite.cols;
+        float cellH = (float)sprite.texture.height / sprite.rows;
+
+        Vector3 drawPos = {enemy.position.x, enemy.position.y + enemy.height * 0.48f, enemy.position.z};
+        Rectangle srcRect = {(float)(enemy.animFrame * cellW), (float)(enemy.animRow * cellH), cellW, cellH};
 
         Color tint = WHITE;
         if (enemy.state == EnemyState::Dead)
-            tint = Fade(DARKGRAY, Clamp(enemy.deathTimer, 0.0f, 1.0f));
+            tint = Fade(WHITE, Clamp(enemy.deathTimer / 0.6f, 0.0f, 1.0f));
         else if (enemy.hitFlashTimer > 0.0f)
             tint = RED;
 
-        DrawBillboard(camera, sprite, drawPos, enemy.height, tint);
+        DrawBillboardRec(camera, sprite.texture, srcRect, drawPos, {enemy.height, enemy.height}, tint);
     }
 }

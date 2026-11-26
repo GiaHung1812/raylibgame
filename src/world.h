@@ -2,10 +2,12 @@
 
 #include <vector>
 #include "collisions.h"
+#include "enemy.h"
 
 struct World
 {
     std::vector<AABB> obstacles;
+    std::vector<Enemy> enemies;
 };
 
 void InitWorld(World &world);

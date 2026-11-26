@@ -4,6 +4,7 @@
 void InitWeapon(Weapon &weapon)
 {
     weapon.state = WeaponState::Idle;
+    weapon.currentAttack = SwordAttackType::RightSlash;
     weapon.forwardOffset = 0.42f;
     weapon.sideOffset = 0.28f;
     weapon.verticalOffset = -0.45f;
@@ -11,12 +12,19 @@ void InitWeapon(Weapon &weapon)
     weapon.scale = {0.022f, 0.022f, 0.022f};
 
     weapon.swingTimer = 0.0f;
+    weapon.swingDuration = 0.35f;
     weapon.swingOffset = 0.0f;
     weapon.horizontalSwingOffset = 0.0f;
     weapon.verticalSwingOffset = 0.0f;
+
+    weapon.attackForwardOffset = 0.0f;
+    weapon.attackSideOffset = 0.0f;
+    weapon.attackVerticalOffset = 0.0f;
     weapon.attackYawDeg = 0.0f;
     weapon.attackRollDeg = 0.0f;
 
+    weapon.comboIndex = 0;
+    weapon.comboTimer = 0.0f;
     weapon.bobTimer = 0.0f;
     weapon.bobVertical = 0.0f;
     weapon.bobSide = 0.0f;
@@ -27,15 +35,48 @@ void InitWeapon(Weapon &weapon)
     weapon.model = LoadModel("assets/sword.glb");
 }
 
+static SwordAttackType GetComboAttack(int comboIndex)
+{
+    switch (comboIndex)
+    {
+    case 0:
+        return SwordAttackType::RightSlash;
+    case 1:
+        return SwordAttackType::LeftSlash;
+    case 2:
+        return SwordAttackType::Stab;
+    default:
+        return SwordAttackType::RightSlash;
+    }
+}
+
 void StartWeaponSwing(Weapon &weapon)
 {
     if (weapon.state != WeaponState::Idle)
         return;
 
+    weapon.currentAttack = GetComboAttack(weapon.comboIndex);
+    weapon.comboIndex = (weapon.comboIndex + 1) % 3;
+    weapon.comboTimer = 0.0f;
+
     weapon.state = WeaponState::Attacking;
     weapon.swingTimer = 0.0f;
     weapon.hitTriggered = false;
     weapon.attackId++;
+}
+
+float GetWeaponDamage(const Weapon &weapon)
+{
+    switch (weapon.currentAttack)
+    {
+    case SwordAttackType::RightSlash:
+        return 25.0f;
+    case SwordAttackType::LeftSlash:
+        return 25.0f;
+    case SwordAttackType::Stab:
+        return 50.0f;
+    }
+    return 25.0f;
 }
 
 static void UpdateWeaponBobbing(Weapon &weapon, bool isMoving, float dt)
@@ -56,20 +97,71 @@ static void UpdateWeaponBobbing(Weapon &weapon, bool isMoving, float dt)
 static void UpdateRightSlashMotion(Weapon &weapon, float t)
 {
     // Fast downstroke followed by deceleration
-    float speedFactor = 2.0f;
-    float tFast = Clamp(t * speedFactor, 0.0f, 1.0f);
+    float tFast = Clamp(t * 2.0f, 0.0f, 1.0f);
     float arc = sinf(tFast * (PI * 0.6f));
 
-    float swingAmount = 0.15f;
-    float verticalSwingAmount = 0.25f;
-    float horizontalSwingAmount = 0.25f;
+    weapon.swingOffset = arc * 0.15f;
+    weapon.verticalSwingOffset = -arc * 0.25f;
+    weapon.horizontalSwingOffset = -arc * 0.25f;
 
-    weapon.swingOffset = arc * swingAmount;
-    weapon.verticalSwingOffset = -arc * verticalSwingAmount;
-    weapon.horizontalSwingOffset = -arc * horizontalSwingAmount;
+    weapon.attackForwardOffset = 0.0f;
+    weapon.attackSideOffset = 0.0f;
+    weapon.attackVerticalOffset = 0.0f;
 
     weapon.attackYawDeg = arc * -35.0f;
     weapon.attackRollDeg = arc * 25.0f;
+}
+
+static void UpdateLeftSlashMotion(Weapon &weapon, float t)
+{
+    float tFast = Clamp(t * 1.8f, 0.0f, 1.0f);
+    float arc = sinf(tFast * (PI * 0.6f));
+
+    weapon.swingOffset = arc * 0.15f;
+    weapon.verticalSwingOffset = -arc * 0.22f;
+    weapon.horizontalSwingOffset = arc * 0.28f;
+
+    // Shift starting pose toward left side for backhand sweep
+    weapon.attackForwardOffset = 0.08f;
+    weapon.attackSideOffset = -0.32f;
+    weapon.attackVerticalOffset = 0.02f;
+
+    weapon.attackYawDeg = arc * 30.0f;
+    weapon.attackRollDeg = -45.0f;
+}
+
+static void UpdateStabMotion(Weapon &weapon, float t)
+{
+    // Three-phase thrust: quick extend, brief hold, smooth retract
+    const float extendEnd = 0.30f;
+    const float holdEnd = 0.75f;
+    float jab = 0.0f;
+
+    if (t < extendEnd)
+    {
+        float p = t / extendEnd;
+        jab = sinf(p * PI * 0.5f);
+    }
+    else if (t < holdEnd)
+    {
+        jab = 1.0f;
+    }
+    else
+    {
+        float p = (t - holdEnd) / (1.0f - holdEnd);
+        jab = 1.0f - p;
+    }
+
+    weapon.swingOffset = jab * 0.42f;
+    weapon.horizontalSwingOffset = 0.0f;
+    weapon.verticalSwingOffset = 0.05f * jab;
+
+    weapon.attackForwardOffset = 0.10f;
+    weapon.attackSideOffset = -0.10f;
+    weapon.attackVerticalOffset = 0.04f;
+
+    weapon.attackYawDeg = 0.0f;
+    weapon.attackRollDeg = -15.0f * jab;
 }
 
 bool UpdateWeapon(Weapon &weapon, bool isMoving, float dt)
@@ -77,13 +169,25 @@ bool UpdateWeapon(Weapon &weapon, bool isMoving, float dt)
     UpdateWeaponBobbing(weapon, isMoving, dt);
 
     bool shouldCheckHit = false;
+    weapon.comboTimer += dt;
 
     if (weapon.state == WeaponState::Attacking)
     {
         weapon.swingTimer += dt;
         float t = Clamp(weapon.swingTimer / weapon.swingDuration, 0.0f, 1.0f);
 
-        UpdateRightSlashMotion(weapon, t);
+        switch (weapon.currentAttack)
+        {
+        case SwordAttackType::RightSlash:
+            UpdateRightSlashMotion(weapon, t);
+            break;
+        case SwordAttackType::LeftSlash:
+            UpdateLeftSlashMotion(weapon, t);
+            break;
+        case SwordAttackType::Stab:
+            UpdateStabMotion(weapon, t);
+            break;
+        }
 
         // Trigger hit detection once inside active swing window
         if (!weapon.hitTriggered &&
@@ -102,11 +206,19 @@ bool UpdateWeapon(Weapon &weapon, bool isMoving, float dt)
     }
     else
     {
+        if (weapon.comboTimer > weapon.comboResetTime)
+            weapon.comboIndex = 0;
+
         // Smooth return to idle pose
-        float returnSpeed = 15.0f;
+        bool comboAlive = (weapon.comboTimer <= weapon.comboResetTime && weapon.comboIndex > 0);
+        float returnSpeed = comboAlive ? 10.0f : 18.0f;
+
         weapon.swingOffset = Lerp(weapon.swingOffset, 0.0f, dt * returnSpeed);
         weapon.verticalSwingOffset = Lerp(weapon.verticalSwingOffset, 0.0f, dt * returnSpeed);
         weapon.horizontalSwingOffset = Lerp(weapon.horizontalSwingOffset, 0.0f, dt * returnSpeed);
+        weapon.attackForwardOffset = Lerp(weapon.attackForwardOffset, 0.0f, dt * returnSpeed);
+        weapon.attackSideOffset = Lerp(weapon.attackSideOffset, 0.0f, dt * returnSpeed);
+        weapon.attackVerticalOffset = Lerp(weapon.attackVerticalOffset, 0.0f, dt * returnSpeed);
         weapon.attackYawDeg = Lerp(weapon.attackYawDeg, 0.0f, dt * returnSpeed);
         weapon.attackRollDeg = Lerp(weapon.attackRollDeg, 0.0f, dt * returnSpeed);
     }
@@ -126,9 +238,9 @@ void DrawWeapon(const Weapon &weapon, const Camera3D &camera)
     Vector3 camUp = Vector3CrossProduct(camRight, camForward);
 
     // Composite offset position in view-space
-    float blendedForward = weapon.forwardOffset + weapon.swingOffset;
-    float blendedSide = weapon.sideOffset + weapon.horizontalSwingOffset + weapon.bobSide;
-    float blendedVertical = weapon.verticalOffset + weapon.verticalSwingOffset + weapon.bobVertical;
+    float blendedForward = weapon.forwardOffset + weapon.swingOffset + weapon.attackForwardOffset;
+    float blendedSide = weapon.sideOffset + weapon.horizontalSwingOffset + weapon.attackSideOffset + weapon.bobSide;
+    float blendedVertical = weapon.verticalOffset + weapon.verticalSwingOffset + weapon.attackVerticalOffset + weapon.bobVertical;
 
     Vector3 swordPos = camera.position;
     swordPos = Vector3Add(swordPos, Vector3Scale(camForward, blendedForward));

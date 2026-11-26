@@ -21,6 +21,7 @@ void InitWorld(World &world)
 {
     // Example obstacles (placed in front of and around the player spawn)
     world.obstacles.clear();
+    world.enemies.clear();
     world.obstacles.push_back(CreateWorldAABB({0.0f, 0.0f, -3.0f}, {2.0f, 1.0f, 1.5f})); // Low step crate (1m tall)
     world.obstacles.push_back(CreateWorldAABB({0.0f, 0.0f, -5.0f}, {2.0f, 2.0f, 2.0f})); // Main box (2m tall)
     world.obstacles.push_back(CreateWorldAABB({4.0f, 0.0f, -8.0f}, {2.0f, 3.0f, 2.0f}));
@@ -36,6 +37,7 @@ bool LoadDungeonFromImage(World &world, const char *imagePath, Vector3 &playerSp
         return false;
     }
     world.obstacles.clear();
+    world.enemies.clear();
 
     float halfWidth = (float)mapImage.width * 0.5f;
     float halfHeight = (float)mapImage.height * 0.5f;
@@ -56,6 +58,12 @@ bool LoadDungeonFromImage(World &world, const char *imagePath, Vector3 &playerSp
             else if (pixelColor.g > 200 && pixelColor.r < 50 && pixelColor.b < 50)
             {
                 playerSpawnPos = {worldX, 0.0f, worldZ};
+            }
+            else if (pixelColor.r > 200 && pixelColor.g < 50 && pixelColor.b < 50)
+            {
+                Enemy enemy;
+                InitEnemy(enemy, {worldX, 0.0f, worldZ});
+                world.enemies.push_back(enemy);
             }
         }
     }

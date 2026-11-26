@@ -8,9 +8,17 @@ enum class WeaponState
     Attacking
 };
 
+enum class SwordAttackType
+{
+    RightSlash,
+    LeftSlash,
+    Stab
+};
+
 struct Weapon
 {
     WeaponState state = WeaponState::Idle;
+    SwordAttackType currentAttack = SwordAttackType::RightSlash;
     Model model;
     Vector3 scale = {0.022f, 0.022f, 0.022f};
 
@@ -28,8 +36,17 @@ struct Weapon
     float horizontalSwingOffset = 0.0f;
     float verticalSwingOffset = 0.0f;
 
+    float attackForwardOffset = 0.0f;
+    float attackSideOffset = 0.0f;
+    float attackVerticalOffset = 0.0f;
+
     float attackYawDeg = 0.0f;
     float attackRollDeg = 0.0f;
+
+    // Combo chaining state
+    int comboIndex = 0;
+    float comboTimer = 0.0f;
+    float comboResetTime = 0.85f;
 
     // Viewmodel bobbing state
     float bobTimer = 0.0f;
@@ -46,5 +63,6 @@ struct Weapon
 void InitWeapon(Weapon &weapon);
 void StartWeaponSwing(Weapon &weapon);
 bool UpdateWeapon(Weapon &weapon, bool isMoving, float dt);
+float GetWeaponDamage(const Weapon &weapon);
 void DrawWeapon(const Weapon &weapon, const Camera3D &camera);
 void UnloadWeapon(Weapon &weapon);

@@ -6,7 +6,8 @@
 
 enum class EnemyType
 {
-    Skeleton
+    Skeleton,
+    Deckhand
 };
 
 enum class EnemyState
@@ -19,9 +20,8 @@ enum class EnemyState
 
 struct EnemySprite
 {
-    Texture2D texture = {0};
-    int cols = 1;
-    int rows = 1;
+    Texture2D texture{};
+    float baseFrameHeight = 200.0f;
 };
 
 struct Enemy
@@ -37,7 +37,6 @@ struct Enemy
     float maxHealth = 100.0f;
     EnemyState state = EnemyState::Idle;
 
-    int animRow = 0;
     int animFrame = 0;
     int animFrameCount = 1;
     float animTimer = 0.0f;
@@ -50,7 +49,7 @@ struct Enemy
     float deathTimer = 0.0f;
 };
 
-EnemySprite LoadEnemySprite(const char *imagePath, int cols = 1, int rows = 1);
+EnemySprite LoadEnemySprite(const char *imagePath, float baseFrameHeight);
 void UnloadEnemySprite(EnemySprite &sprite);
 void InitEnemy(Enemy &enemy, Vector3 startPos, EnemyType type = EnemyType::Skeleton);
 AABB GetEnemyAABB(const Enemy &enemy);

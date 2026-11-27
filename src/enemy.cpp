@@ -6,36 +6,59 @@
 constexpr float DETECT_RADIUS = 10.0f;
 constexpr float LOSE_RADIUS = 14.0f;
 constexpr float ATTACK_RANGE = 1.4f;
+constexpr float ATTACK_WINDUP = 0.35f;
 constexpr float ATTACK_COOLDOWN = 1.0f;
+constexpr float MIN_PLAYER_SEPARATION = 0.9f;
 constexpr float ENEMY_DAMAGE = 10.0f;
 
-struct EnemyAnimDesc
+struct EnemyAnimClip
 {
-    int row;
-    int frames;
+    std::vector<Rectangle> frames;
     float speed;
     bool loop;
 };
 
-static EnemyAnimDesc GetAnimForState(EnemyType type, EnemyState state)
+static std::vector<Rectangle> MakeGridRowFrames(float cellW, float cellH, int row, int count)
 {
-    switch (type)
-    {
-    case EnemyType::Skeleton:
-        switch (state)
-        {
-        case EnemyState::Idle:
-            return {0, 1, 0.20f, true};
-        case EnemyState::Chase:
-            return {1, 4, 0.14f, true};
-        case EnemyState::Attack:
-            return {2, 5, 0.12f, true};
-        case EnemyState::Dead:
-            return {4, 4, 0.16f, false};
-        }
-        break;
-    }
-    return {0, 1, 0.20f, true};
+    std::vector<Rectangle> frames;
+    frames.reserve(count);
+    for (int col = 0; col < count; ++col)
+        frames.push_back({col * cellW, row * cellH, cellW, cellH});
+    return frames;
+}
+
+static const EnemyAnimClip &GetAnimClip(EnemyType type, EnemyState state)
+{
+    static const EnemyAnimClip skeletonClips[4] = {
+        {MakeGridRowFrames(200.0f, 200.0f, 0, 1), 0.20f, true},  // Idle
+        {MakeGridRowFrames(200.0f, 200.0f, 1, 4), 0.14f, true},  // Chase
+        {MakeGridRowFrames(200.0f, 200.0f, 2, 5), 0.12f, true},  // Attack
+        {MakeGridRowFrames(200.0f, 200.0f, 4, 4), 0.16f, false}, // Dead
+    };
+
+    // Exact frame bounds cropped to exclude text labels in assets/deckhand.png
+    static const EnemyAnimClip deckhandClips[4] = {
+        {{{11, 10, 23, 37}, {45, 10, 21, 37}, {78, 10, 22, 37}}, 0.28f, true},
+        {{{177, 10, 29, 37}, {210, 10, 23, 37}, {243, 10, 29, 37}, {277, 10, 28, 37}, {310, 10, 29, 37}}, 0.12f, true},
+        {{{4, 105, 35, 38}, {53, 104, 25, 38}, {94, 100, 27, 43}, {135, 106, 36, 36}, {174, 105, 31, 38}}, 0.11f, true},
+        {{{10, 153, 25, 38}, {51, 153, 26, 38}, {95, 153, 26, 38}, {136, 158, 26, 31}, {177, 160, 27, 29}, {217, 161, 30, 28}, {256, 169, 39, 22}, {300, 169, 40, 23}}, 0.12f, false},
+    };
+
+    size_t stateIdx = static_cast<size_t>(state);
+    if (type == EnemyType::Deckhand)
+        return deckhandClips[stateIdx];
+    return skeletonClips[stateIdx];
+}
+
+static void ApplyStateAnimation(Enemy &enemy, EnemyState nextState)
+{
+    enemy.state = nextState;
+    const EnemyAnimClip &clip = GetAnimClip(enemy.type, nextState);
+    enemy.animFrame = 0;
+    enemy.animFrameCount = static_cast<int>(clip.frames.size());
+    enemy.animTimer = 0.0f;
+    enemy.animSpeed = clip.speed;
+    enemy.animLoop = clip.loop;
 }
 
 static void SetEnemyState(Enemy &enemy, EnemyState nextState)
@@ -43,14 +66,9 @@ static void SetEnemyState(Enemy &enemy, EnemyState nextState)
     if (enemy.state == nextState)
         return;
 
-    enemy.state = nextState;
-    EnemyAnimDesc anim = GetAnimForState(enemy.type, nextState);
-    enemy.animRow = anim.row;
-    enemy.animFrame = 0;
-    enemy.animFrameCount = anim.frames;
-    enemy.animTimer = 0.0f;
-    enemy.animSpeed = anim.speed;
-    enemy.animLoop = anim.loop;
+    ApplyStateAnimation(enemy, nextState);
+    if (nextState == EnemyState::Attack && enemy.attackCooldown < ATTACK_WINDUP)
+        enemy.attackCooldown = ATTACK_WINDUP;
 }
 
 static void UpdateEnemyAnimation(Enemy &enemy, float dt)
@@ -73,11 +91,10 @@ static void UpdateEnemyAnimation(Enemy &enemy, float dt)
     }
 }
 
-EnemySprite LoadEnemySprite(const char *imagePath, int cols, int rows)
+EnemySprite LoadEnemySprite(const char *imagePath, float baseFrameHeight)
 {
     EnemySprite sprite;
-    sprite.cols = (cols > 0) ? cols : 1;
-    sprite.rows = (rows > 0) ? rows : 1;
+    sprite.baseFrameHeight = (baseFrameHeight > 0.0f) ? baseFrameHeight : 1.0f;
     sprite.texture = LoadTexture(imagePath);
 
     if (sprite.texture.id != 0)
@@ -91,7 +108,7 @@ void UnloadEnemySprite(EnemySprite &sprite)
     if (sprite.texture.id != 0)
     {
         UnloadTexture(sprite.texture);
-        sprite.texture = {0};
+        sprite.texture = {};
     }
 }
 
@@ -102,18 +119,11 @@ void InitEnemy(Enemy &enemy, Vector3 startPos, EnemyType type)
     enemy.velocity = {0.0f, 0.0f, 0.0f};
     enemy.radius = 0.4f;
     enemy.height = 1.75f;
-    enemy.speed = 2.6f;
-    enemy.maxHealth = 100.0f;
+    enemy.speed = (type == EnemyType::Deckhand) ? 3.1f : 2.6f;
+    enemy.maxHealth = (type == EnemyType::Deckhand) ? 120.0f : 100.0f;
     enemy.health = enemy.maxHealth;
 
-    EnemyAnimDesc anim = GetAnimForState(type, EnemyState::Idle);
-    enemy.state = EnemyState::Idle;
-    enemy.animRow = anim.row;
-    enemy.animFrame = 0;
-    enemy.animFrameCount = anim.frames;
-    enemy.animTimer = 0.0f;
-    enemy.animSpeed = anim.speed;
-    enemy.animLoop = anim.loop;
+    ApplyStateAnimation(enemy, EnemyState::Idle);
 
     enemy.lastAttackId = -1;
     enemy.hitFlashTimer = 0.0f;
@@ -183,15 +193,20 @@ static Vector3 ComputeSeparation(const Enemy &self, const std::vector<Enemy> &en
     return push;
 }
 
+static void TranslateEnemyWithCollision(Enemy &enemy, Vector3 delta, const CollisonList &obstacles)
+{
+    enemy.position.x += delta.x;
+    if (CheckWorldCollision(GetEnemyAABB(enemy), obstacles))
+        enemy.position.x -= delta.x;
+
+    enemy.position.z += delta.z;
+    if (CheckWorldCollision(GetEnemyAABB(enemy), obstacles))
+        enemy.position.z -= delta.z;
+}
+
 static void MoveEnemyWithCollision(Enemy &enemy, Vector3 moveVel, float dt, const CollisonList &obstacles)
 {
-    enemy.position.x += moveVel.x * dt;
-    if (CheckWorldCollision(GetEnemyAABB(enemy), obstacles))
-        enemy.position.x -= moveVel.x * dt;
-
-    enemy.position.z += moveVel.z * dt;
-    if (CheckWorldCollision(GetEnemyAABB(enemy), obstacles))
-        enemy.position.z -= moveVel.z * dt;
+    TranslateEnemyWithCollision(enemy, Vector3Scale(moveVel, dt), obstacles);
 }
 
 void UpdateEnemies(std::vector<Enemy> &enemies, Vector3 playerPos, float &playerHealth, float dt, const CollisonList &obstacles)
@@ -228,6 +243,15 @@ void UpdateEnemies(std::vector<Enemy> &enemies, Vector3 playerPos, float &player
 
         Vector3 toPlayer = {playerPos.x - enemy.position.x, 0.0f, playerPos.z - enemy.position.z};
         float dist = Vector3Length(toPlayer);
+
+        // Keep minimum spacing from the player camera without pushing into walls
+        if (dist < MIN_PLAYER_SEPARATION)
+        {
+            Vector3 awayDir = (dist > 0.001f) ? Vector3Scale(toPlayer, -1.0f / dist) : Vector3{0.0f, 0.0f, 1.0f};
+            TranslateEnemyWithCollision(enemy, Vector3Scale(awayDir, MIN_PLAYER_SEPARATION - dist), obstacles);
+            toPlayer = {playerPos.x - enemy.position.x, 0.0f, playerPos.z - enemy.position.z};
+            dist = Vector3Length(toPlayer);
+        }
 
         switch (enemy.state)
         {
@@ -309,11 +333,14 @@ void DrawEnemies(const std::vector<Enemy> &enemies, const Camera3D &camera, cons
         }
 
         const EnemySprite &sprite = sprites[typeIdx];
-        float cellW = (float)sprite.texture.width / sprite.cols;
-        float cellH = (float)sprite.texture.height / sprite.rows;
+        const EnemyAnimClip &clip = GetAnimClip(enemy.type, enemy.state);
+        int frameIdx = Clamp(enemy.animFrame, 0, static_cast<int>(clip.frames.size()) - 1);
+        Rectangle srcRect = clip.frames[frameIdx];
 
-        Vector3 drawPos = {enemy.position.x, enemy.position.y + enemy.height * 0.48f, enemy.position.z};
-        Rectangle srcRect = {(float)(enemy.animFrame * cellW), (float)(enemy.animRow * cellH), cellW, cellH};
+        // Preserve sprite aspect ratio relative to standing frame height
+        float worldHeight = enemy.height * (srcRect.height / sprite.baseFrameHeight);
+        float worldWidth = worldHeight * (srcRect.width / srcRect.height);
+        Vector3 drawPos = {enemy.position.x, enemy.position.y + worldHeight * 0.5f, enemy.position.z};
 
         Color tint = WHITE;
         if (enemy.state == EnemyState::Dead)
@@ -321,6 +348,6 @@ void DrawEnemies(const std::vector<Enemy> &enemies, const Camera3D &camera, cons
         else if (enemy.hitFlashTimer > 0.0f)
             tint = RED;
 
-        DrawBillboardRec(camera, sprite.texture, srcRect, drawPos, {enemy.height, enemy.height}, tint);
+        DrawBillboardRec(camera, sprite.texture, srcRect, drawPos, {worldWidth, worldHeight}, tint);
     }
 }

@@ -3,7 +3,7 @@
 
 void InitGameCamera(GameCamera &cam, Vector3 startPosition)
 {
-    cam.playerCamera = {0};
+    cam.playerCamera = {};
     cam.playerCamera.position = startPosition;
     cam.playerCamera.target = Vector3Add(startPosition, (Vector3){0.0f, 0.0f, -1.0f});
     cam.playerCamera.up = (Vector3){0.0f, 1.0f, 0.0f};

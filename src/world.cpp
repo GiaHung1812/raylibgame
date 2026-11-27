@@ -62,7 +62,13 @@ bool LoadDungeonFromImage(World &world, const char *imagePath, Vector3 &playerSp
             else if (pixelColor.r > 200 && pixelColor.g < 50 && pixelColor.b < 50)
             {
                 Enemy enemy;
-                InitEnemy(enemy, {worldX, 0.0f, worldZ});
+                InitEnemy(enemy, {worldX, 0.0f, worldZ}, EnemyType::Skeleton);
+                world.enemies.push_back(enemy);
+            }
+            else if (pixelColor.b > 200 && pixelColor.r < 50 && pixelColor.g < 50)
+            {
+                Enemy enemy;
+                InitEnemy(enemy, {worldX, 0.0f, worldZ}, EnemyType::Deckhand);
                 world.enemies.push_back(enemy);
             }
         }

@@ -5,11 +5,13 @@ void ResetWeapon(Weapon &weapon)
 {
     weapon.state = WeaponState::Idle;
     weapon.currentAttack = SwordAttackType::RightSlash;
-    weapon.forwardOffset = 0.42f;
-    weapon.sideOffset = 0.28f;
-    weapon.verticalOffset = -0.45f;
-    weapon.baseRollDeg = 30.0f;
-    weapon.scale = {0.022f, 0.022f, 0.022f};
+    weapon.forwardOffset = 0.46f;
+    weapon.sideOffset = 0.30f;
+    weapon.verticalOffset = -0.36f;
+    weapon.basePitchDeg = -14.0f;
+    weapon.baseYawDeg = 14.0f;
+    weapon.baseRollDeg = 6.0f;
+    weapon.scale = {0.017f, 0.017f, 0.017f};
 
     weapon.swingTimer = 0.0f;
     weapon.swingDuration = 0.35f;
@@ -251,27 +253,25 @@ void DrawWeapon(const Weapon &weapon, const Camera3D &camera)
     swordPos = Vector3Add(swordPos, Vector3Scale(camRight, blendedSide));
     swordPos = Vector3Add(swordPos, Vector3Scale(camUp, blendedVertical));
 
-    // Orientation matrices matching Marooned's pose alignment
+    // Orientation matrices aligning the GLB model to view space
     Matrix cameraRot = QuaternionToMatrix(q);
     Matrix baseRoll = MatrixRotateZ(weapon.baseRollDeg * DEG2RAD);
+    Matrix basePitch = MatrixRotateX(weapon.basePitchDeg * DEG2RAD);
+    Matrix baseYaw = MatrixRotateY(weapon.baseYawDeg * DEG2RAD);
     Matrix attackYaw = MatrixRotateY(weapon.attackYawDeg * DEG2RAD);
     Matrix attackRoll = MatrixRotateZ(weapon.attackRollDeg * DEG2RAD);
 
-    Matrix extraRot = MatrixMultiply(baseRoll, attackYaw);
-    extraRot = MatrixMultiply(attackRoll, extraRot);
+    Matrix extraRot = MatrixMultiply(baseRoll, basePitch);
+    extraRot = MatrixMultiply(extraRot, baseYaw);
+    extraRot = MatrixMultiply(extraRot, attackYaw);
+    extraRot = MatrixMultiply(extraRot, attackRoll);
     Matrix finalRot = MatrixMultiply(extraRot, cameraRot);
 
-    // Decompose final matrix to axis-angle for DrawModelEx
-    Quaternion finalQ = QuaternionFromMatrix(finalRot);
-    float finalAngle = 2.0f * acosf(Clamp(finalQ.w, -1.0f, 1.0f));
-    float finalAngleDeg = finalAngle * RAD2DEG;
-    float finalSinTheta = sqrtf(fmaxf(0.0f, 1.0f - finalQ.w * finalQ.w));
+    Vector3 finalAxis = {1.0f, 0.0f, 0.0f};
+    float finalAngleRad = 0.0f;
+    QuaternionToAxisAngle(QuaternionFromMatrix(finalRot), &finalAxis, &finalAngleRad);
 
-    Vector3 finalAxis = (finalSinTheta < 0.001f)
-                            ? (Vector3){1.0f, 0.0f, 0.0f}
-                            : (Vector3){finalQ.x / finalSinTheta, finalQ.y / finalSinTheta, finalQ.z / finalSinTheta};
-
-    DrawModelEx(weapon.model, swordPos, finalAxis, finalAngleDeg, weapon.scale, WHITE);
+    DrawModelEx(weapon.model, swordPos, finalAxis, finalAngleRad * RAD2DEG, weapon.scale, WHITE);
 }
 
 void UnloadWeapon(Weapon &weapon)

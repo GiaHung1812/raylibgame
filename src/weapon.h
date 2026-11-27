@@ -20,13 +20,15 @@ struct Weapon
     WeaponState state = WeaponState::Idle;
     SwordAttackType currentAttack = SwordAttackType::RightSlash;
     Model model;
-    Vector3 scale = {0.022f, 0.022f, 0.022f};
+    Vector3 scale = {0.017f, 0.017f, 0.017f};
 
     // Rest pose offsets
-    float forwardOffset = 0.42f;
-    float sideOffset = 0.28f;
-    float verticalOffset = -0.45f;
-    float baseRollDeg = 30.0f;
+    float forwardOffset = 0.46f;
+    float sideOffset = 0.30f;
+    float verticalOffset = -0.36f;
+    float basePitchDeg = -14.0f;
+    float baseYawDeg = 14.0f;
+    float baseRollDeg = 6.0f;
 
     // Swing animation parameters
     float swingTimer = 0.0f;

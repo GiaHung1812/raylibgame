@@ -8,10 +8,8 @@
 
 enum class GameState
 {
-    Title,
     Playing,
-    GameOver,
-    Victory
+    GameOver
 };
 
 static void ResetLevel(World &world, Player &player, GameCamera &camera, Weapon &weapon)
@@ -20,14 +18,22 @@ static void ResetLevel(World &world, Player &player, GameCamera &camera, Weapon 
     if (!LoadDungeonFromImage(world, "assets/dungeon_map.png", playerSpawn))
         InitWorld(world);
 
-    // Spawn default test enemies if map has no red enemy pixels
+    // Spawn default test enemies if map has no enemy spawn pixels
     if (world.enemies.empty())
     {
-        Vector3 offsets[2] = {{4.0f, 0.0f, -6.0f}, {-4.0f, 0.0f, -6.0f}};
-        for (const auto &off : offsets)
+        struct DefaultSpawn
+        {
+            Vector3 offset;
+            EnemyType type;
+        };
+        DefaultSpawn defaults[2] = {
+            {{-4.0f, 0.0f, -6.0f}, EnemyType::Skeleton},
+            {{4.0f, 0.0f, -6.0f}, EnemyType::Deckhand}};
+
+        for (const auto &sp : defaults)
         {
             Enemy enemy;
-            InitEnemy(enemy, Vector3Add(playerSpawn, off));
+            InitEnemy(enemy, Vector3Add(playerSpawn, sp.offset), sp.type);
             if (!CheckWorldCollision(GetEnemyAABB(enemy), world.obstacles))
                 world.enemies.push_back(enemy);
         }
@@ -91,7 +97,7 @@ static void UpdatePlaying(World &world, Player &player, GameCamera &camera, Weap
         float maxHitDist = wallHit.hit ? wallHit.distance : meleeRange;
 
         Enemy *closestEnemy = nullptr;
-        RayCollision closestEnemyHit = {0};
+        RayCollision closestEnemyHit{};
 
         for (auto &enemy : world.enemies)
         {
@@ -159,30 +165,15 @@ static void DrawHUD(const Player &player, const World &world, bool hitActive)
     DrawText(TextFormat("Enemies: %d", (int)world.enemies.size()), 10, 35, 20, DARKGRAY);
 }
 
-static void DrawStateOverlay(GameState state)
+static void DrawGameOverOverlay()
 {
     int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
     DrawRectangle(0, 0, screenW, screenH, Fade(BLACK, 0.6f));
 
     int centerY = screenH / 2;
-    if (state == GameState::Title)
-    {
-        DrawCenteredText("DUNGEON BLADE", centerY - 60, 48, WHITE);
-        DrawCenteredText("WASD: Move | Space: Jump | Left Click: Sword Combo", centerY + 5, 20, LIGHTGRAY);
-        DrawCenteredText("PRESS ENTER TO START", centerY + 45, 24, GOLD);
-    }
-    else if (state == GameState::GameOver)
-    {
-        DrawCenteredText("GAME OVER", centerY - 50, 48, RED);
-        DrawCenteredText("PRESS R OR ENTER TO RETRY", centerY + 20, 24, WHITE);
-    }
-    else if (state == GameState::Victory)
-    {
-        DrawCenteredText("VICTORY!", centerY - 50, 48, GOLD);
-        DrawCenteredText("All enemies defeated!", centerY + 5, 20, LIGHTGRAY);
-        DrawCenteredText("PRESS R OR ENTER TO PLAY AGAIN", centerY + 40, 24, WHITE);
-    }
+    DrawCenteredText("GAME OVER", centerY - 50, 48, RED);
+    DrawCenteredText("PRESS R OR ENTER TO RETRY", centerY + 20, 24, WHITE);
 }
 
 int main()
@@ -190,7 +181,6 @@ int main()
     // Window initialization
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(1280, 720, "My Game");
-    EnableCursor();
     SetTargetFPS(100);
 
     World world;
@@ -201,13 +191,14 @@ int main()
 
     // Indexed by EnemyType enum order
     std::vector<EnemySprite> enemySprites = {
-        LoadEnemySprite("assets/skeletonSheet.png", 5, 5)};
-    ResetLevel(world, player, camera, weapon);
+        LoadEnemySprite("assets/skeletonSheet.png", 200.0f),
+        LoadEnemySprite("assets/deckhand.png", 37.0f)};
 
-    GameState currentState = GameState::Title;
+    GameState currentState = GameState::Playing;
     Vector3 lastHitPoint = {0.0f, 0.0f, 0.0f};
     float hitIndicatorTimer = 0.0f;
     float hitStopTimer = 0.0f;
+    EnterPlayingState(world, player, camera, weapon, hitIndicatorTimer, hitStopTimer, currentState);
 
     while (!WindowShouldClose())
     {
@@ -217,11 +208,6 @@ int main()
 
         switch (currentState)
         {
-        case GameState::Title:
-            if (IsKeyPressed(KEY_ENTER))
-                EnterPlayingState(world, player, camera, weapon, hitIndicatorTimer, hitStopTimer, currentState);
-            break;
-
         case GameState::Playing:
             UpdatePlaying(world, player, camera, weapon, lastHitPoint, hitIndicatorTimer, hitStopTimer, dt);
             if (player.health <= 0.0f)
@@ -229,15 +215,9 @@ int main()
                 currentState = GameState::GameOver;
                 EnableCursor();
             }
-            else if (world.enemies.empty())
-            {
-                currentState = GameState::Victory;
-                EnableCursor();
-            }
             break;
 
         case GameState::GameOver:
-        case GameState::Victory:
             if (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_ENTER))
                 EnterPlayingState(world, player, camera, weapon, hitIndicatorTimer, hitStopTimer, currentState);
             break;
@@ -263,7 +243,7 @@ int main()
         if (currentState == GameState::Playing)
             DrawHUD(player, world, hitIndicatorTimer > 0.0f);
         else
-            DrawStateOverlay(currentState);
+            DrawGameOverOverlay();
 
         EndDrawing();
     }

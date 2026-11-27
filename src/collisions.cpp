@@ -21,7 +21,7 @@ bool CheckWorldCollision(const AABB &box, const CollisonList &obstacles)
 
 RayCollision RaycastWorld(Ray ray, float maxDistance, const CollisonList &obstacles)
 {
-    RayCollision closestHit = {0};
+    RayCollision closestHit{};
 
     for (const auto &obstacle : obstacles)
     {
